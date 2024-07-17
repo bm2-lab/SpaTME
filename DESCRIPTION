@@ -1,0 +1,40 @@
+Package: SpaTME
+Type: Package
+Title: SpaTME: Deciphering tumor microenvironment spatial characteristics and linking them with patient phenotypes
+Version: 0.1.0
+Author: Xiaojie Cheng
+Maintainer: Xiaojie Cheng <lvlanzi0306@gmail.com>
+Description: SpaTME is a novel framework that utilizes spatial transcriptomics data to provide a comprehensive characterization of the TME across molecular, cellular, and tissue structure levels. Specifically, SpaTME aims to link the spatial features of TME with patient prognosis using bulk RNA-seq profiles annotated with clinical information.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Depends: 
+    R (>= 4.3.0),
+    Seurat (>= 4.3.0)
+Imports:
+    SeuratObject,
+    ggplot2,
+    foreach,
+    NMF,
+    igraph,
+    progressr,
+    survival,
+    ROCR,
+    msigdbr,
+    doParallel,
+    parallel,
+    fpc,
+    cluster,
+    cowplot,
+    scatterpie,
+    grDevices
+Suggests:
+    WGCNA,
+    BayesSpace,
+    SingleCellExperiment,
+    doSNOW,
+    DESeq2,
+    GSVA,
+    AUCell,
+    UCell,
+RoxygenNote: 7.2.3

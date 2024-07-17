@@ -1,0 +1,309 @@
+---
+title: "SpaTME"
+author: "Xiaojie Cheng"
+date: "`r Sys.Date()`"
+output: html_document
+---
+## Preprocessing
+
+```{r, warning=FALSE, message=FALSE}
+library(SpaTME)
+library(dplyr)
+library(ggplot2)
+# load ST data
+st <- readRDS("~/test_data/st.rds")
+```
+
+SpaTME checks if the coordinate information is available in the meta.data, images, or colnames (formatted as 1x2) of st. Specifically, for Visium data, the x and y coordinates are adjusted to follow a hexagonal arrangement.
+
+```{r, include=T}
+st <- STcoordCheck(st = st, platform = "Visium", hexagon.correct = T,
+                   hexagon.direct = "vertical",verbose = T)
+```
+
+Preprocessing includes standard steps in Seurat tool, like SCT normalization, dimensionality reduction (PCA, UMAP, t-SNE), and clustering.
+
+```{r, include=T, warning=FALSE, message=FALSE}
+st <- SePreprocess(se = st, assay = "Spatial", norm.SCT = TRUE, cluster.resolution = 0.8)
+```
+
+## Characterization of TME with cellular and molecular features.
+
+Creating `STFeature` object, a container for identified ST features.
+Stf is initialized with positions and cell abundance annotations.
+```{r, include=T}
+# Loading cell abundances deconvoluted using Cell2location.
+cell.abun <- readRDS("~/test_data/cell.abun.rds")
+stf <- CreateStfObj(st = st, assay = "SCT", slot = "data", norm = T,
+                    cell.anno = cell.abun, min.prop = 0.05,
+                    init.fea = c("Position", "CellAnno"))
+```
+
+### Molecular features
+
+SpaTME explores the molecular features from three aspects: (1) Assessing the enrichment of annotated gene sets. (2) Determining gene co-expression modules. (3) Quantifying the ligand-receptor (LR) interactions.
+
+Firstly, SpaTME enables assessing the enrichment of immune and tumor-related signatures collected from literatures (CuratedSig category) or various biomedical ontologies sourced from databases (MsigDB category). Here, we calculate the enrichment scores of TLS signatures using the `AddModuleScore` function in Seurat.
+```{r, include=T}
+expr <- GetAssayData(object = st, assay = "SCT", slot = "data")
+stf = GetGsetSigScore(expr = expr, stf = stf, category = "CuratedSig",
+                      types = c("Immune"),
+                      subtype = "TLS",
+                      method = "AddModuleScore", scale = T)
+# In SpaTME, the SpotVisualize() function is used to visualize features.
+SpotVisualize(st, title = "imprint.65sig",
+              legend.name = "Score",size = 1.5,
+              meta = stf@GsetSig$CuratedSig$Immune$TLS$imprint.65sig)
+```
+
+SpaTME allows identification of gene co-expression modules utilizing `WGCNA`. Here, we use the top 2000 Spatially variable genes (SVGs) identified previously as an example.
+```{r BulidCGnet, warning=FALSE, fig.width= 8, fig.height= 6}
+topSVGs <- readRDS("~/test_data/topSVGs.rds")
+data <- st@assays$SCT@data[topSVGs,]
+# gene co-expression module
+Topgene.net <- BulidCGnet(data = t(as.matrix(data)), outdir = NULL,
+                     power.seq = c(c(1:10), seq(from = 12, to=20, by=2)),
+                     verbose = 0, minModuleSize = 20, reassignThreshold = 0,
+                     mergeCutHeight = 0.15, pamRespectsDendro = FALSE, detectCutHeight = 0.99)
+```
+
+Calculating the eigengenes of modules.
+```{r, include=T, fig.width= 12, fig.height= 8}
+net_MEs <- WGCNA::moduleEigengenes(expr = t(as.matrix(data)),
+                           colors = Topgene.net$colors)
+net_MEs <- net_MEs$eigengenes
+```
+
+Visualizing the distribution of each ME.
+```{r, warning=FALSE, message=FALSE, fig.width= 10, fig.height= 15}
+library(cowplot)
+plot.list = c()
+for(i in colnames(net_MEs)){
+  plot.list[[i]] <- SpotVisualize(st, meta = net_MEs[, i], size = 1.5, return = T,title = i, legend.name = "Expression")
+}
+plot_grid(plotlist = plot.list, ncol = 3)
+```
+
+SpaTME enables quantification of 1396 LR interactions collected from the `CellPhoneDB` database, which includes multi-subunit information of protein complexes. The `BuildLRExprssion()` function recalculates the effect expression  of secreted proteins and membrane proteins separately, taking into account the interaction distance. 
+```{r BuildLRExprssion}
+data("LR_input")
+expr <- GetAssayData(object = st,
+                     assay = "SCT",
+                     slot = "data")
+LR_expression <- BuildLRExprssion(Expr = expr, st_pos = stf@Position,
+                                  LR_input = LR_input, do.dist = T, r.dist = 4,
+                                  long.dist.method = "weighted",
+                                  adjust = 2, na.rm = T, verbose = F)
+
+```
+
+The `CalLRIScore` function quantifies the interaction scores of LR pairs.
+```{r}
+data(interaction_input)
+LRscore <- CalLRIScore(interaction_input = interaction_input[1:100,],
+                       LR_expression = LR_expression, na.rm = T,
+                       p = 3, verbose = F)
+```
+
+### Cellular features
+
+SpaTME describes the spatial distribution of cell populations by calculating co-distribution scores of cell types and measuring the degree of immune infiltration.
+```{r}
+# Visualizaition of top three cell types for each spot
+library("scatterpie")
+library("cowplot")
+data <- stf@CellAnno
+data <- apply(data, 1, function(x){
+  th <- sort(x, decreasing = T)[3]
+  x[x < th] = 0
+  return(x/sum(x))
+})
+data <- t(data)
+colors <- LabelMapcolor(labels = unique(colnames(data)),
+                        assgin.col = c("Tumor" = "#ced4da", "Plasma/B.cells" = "#0077b6", "T.cells" = "#b95b13", "Epithelial" = "#6c809a"))
+PlotCellSpot(decon_mtrx = data, st_pos = stf@Position,
+             pie_scale = 0.5, pie_color = colors,
+             separate = F, e.color = NA)
+```
+
+SpaTME calculates the cell co-distribution scores with the `CalCellCodis()` function.
+```{r, include=T, fig.width= 12, fig.height= 7}
+stf@CellCodis <- CalCellCodis(stf@CellAnno, sort = T)
+# Distribution of T cells and Plasma/B.cells, and their co-diatribution scores.
+p1 <- SpotVisualize(pos = stf@Position, meta = stf@CellAnno$`Plasma/B.cells`,
+              size = 1.5, return = T, title = "Plasma/B.cells")
+p2 <- SpotVisualize(pos = stf@Position, meta = stf@CellAnno$T.cells,
+              size = 1.5, return = T, title = "T.cells")
+p3 <- SpotVisualize(pos = stf@Position,
+              meta = stf@CellCodis$`Plasma/B.cells_T.cells`,
+              size = 1.5, return = T, title = "Plasma/B.cells_T.cells")
+plot_grid(plotlist = list(p1, p2, p3), ncol = 3)
+```
+
+The degree of immune infiltration in ST sample.
+```{r, include=T, fig.width= 7, fig.height= 6}
+immune.cells <- sort(c("Plasma/B.cells", "T.cells", "Dendritic.cells", "Macrophage", "Monocyte", "NK"))
+data <- stf@CellAnno[, immune.cells]
+## Immune cells with a proportion less than 0.05 will not be considered for immune infiltration
+Imm.infil <- CalImmInfiltration(data, min.prop = 0.05)
+p1 <- SpotVisualize(pos = stf@Position, meta = Imm.infil$Imm.enrichment, return = T,
+               size = 1.5, title = "Imm.enrichment")
+p2 <- SpotVisualize(pos = stf@Position, meta = Imm.infil$Imm.diversity, return = T,
+              size = 1.5, title = "Imm.diversity")
+plot_grid(plotlist = list(p1, p2), ncol = 2)
+```
+
+## Recognition of spatial architectures
+
+### Domain annotation 
+
+Any domain labels annotated with others tools can be used for SpaTME. In addition to clusters obtained from `Seurat`, SpaTME also implements the `BayesSpace` tool to annotate the spatial domains of ST data. If the number of clusters (`num_clu`) is not specified, the `BayesCluster()` function will automatically select it by running the BayesSpace algorithm for multiple values specified by the `qs` parameter. Alternatively, users could select the point around the elbow of plot if the `show_qplot` is set to TRUE. 
+For example, we run the `BayesCluster()` with `qs = 5:12` and select the point 9, which around the first elbow.
+```{r BayesSpace}
+sce <- BayesCluster(st = st, assay = "Spatial",platfrom = "Visium",
+                    qs = 6:12, show_qplot = T)
+```
+
+```{r}
+domains <- paste0("Domain_", sce@colData@listData$spatial.cluster)
+stf@Annotation <- data.frame(row.names = rownames(stf@Position))
+stf@Annotation[, "bayes_cluster"] <- domains
+SpotVisualize(pos = stf@Position, size = 1.5,
+                  meta = domains, title = "Domain annotation",
+                  cha.col = LabelMapcolor(unique(domains)))
+```
+
+### TLS prediction
+
+SpaTME employs two TLS signatures, as well as the co-localization of Plasma/B cells and T cells, to detect TLS. In particular, SpaTME improves the accuracy of TLS prediction by integrating the neighborhood information of spots within the same domain. The `CalTLSfea` function returns a list containing distinct forms of TLS features and the final TLS scores.
+```{r TLS_prediction, message=FALSE}
+tls.sig <- stf@GsetSig$CuratedSig$Immune$TLS[, c("LC.50sig", "imprint.65sig")]
+cell.fea <- stf@CellCodis$`Plasma/B.cells_T.cells`
+comb.fea <- cbind(tls.sig, cell.fea)
+rownames(comb.fea) <- rownames(stf@Position)
+TLS.fea <- CalTLSfea(data = comb.fea, st_pos = stf@Position,
+                     cluster = stf@Annotation$bayes_cluster,
+                     r.dist = 2, method = "weighted", verbose = F)
+SpotVisualize(pos = stf@Position, size = 1.5, limits = c(0, 1),
+                  meta = TLS.fea$TLS.score, title = "TLS score")
+```
+
+### Tumor-normal interface (TNI) identification
+
+SpaTME identifies the TNI regions by inputted with tumor cell and domain annotations. Here, we used a RCC slice with clear tumor boundaries. 
+```{r, warning=FALSE, message=FALSE}
+st2 <- readRDS("~/test_data/st2.rds")
+st2 <- STcoordCheck(st = st2, platform = "Visium", hexagon.correct = T, reset = T,
+                   hexagon.direct = "vertical",verbose = T)
+st2 <- SePreprocess(se = st2, assay = "Spatial", norm.SCT = TRUE, cluster.resolution = 0.8)
+stf2 <- readRDS("~/test_data/stf2.rds")
+```
+
+In SpaTME, the `TNIscore` and `DefineTNIregion` functions are developed to calculate the TNI scores and determine the final TNI regions respectively. 
+Firstly, we adjust the proportions of tumor cells using the total abundances of each spot (This step can be ignored if only proportions are provided).
+```{r TNIscore}
+cell.abun <- readRDS("~/test_data/cell.abun_ffpe_c_7.rds")
+abun.all <- log2(rowSums(cell.abun)+1)
+abun.all <- abun.all/max(abun.all)
+cell.abun <- cell.abun/rowSums(cell.abun)
+ES <- cell.abun$Tumor*abun.all
+ES <- ES/max(ES)
+score <- TNIscore(ES, st_pos = stf2@Position,
+                  cluster = stf2@Annotation$bayes_cluster,
+                  r.dist = 2)
+SpotVisualize(pos = stf2@Position,
+                meta = score, size = 1.5,
+                title = "TNI score", limits = c(0,0.5),
+              f.color = c("#ced4da", "#e5614b", "#a4161a"))
+```
+
+In `DefineTNIregion`, the `maxval` and `minval` directly control the selection of TNI spots.
+```{r DefineTNIregion}
+TNIreg <- DefineTNIregion(score, st_pos = stf2@Position,
+                          maxval = 0.08, minval = 0.03,
+                          r.dist = 2, verbose = T)
+SpotVisualize(pos = stf2@Position,
+              meta = TNIreg, size = 1.5,
+              cha.col = c(TNI = "#e76f51", nTNI = "#ced4da"),
+              title = "TNI regions")
+```
+
+Visualization of TNI region and tumor cell distribution.
+```{r}
+AbunTNIPlot(abun = ES, label = TNIreg, pos = stf2@Position,
+            l_nshow = "nTNI", size = 1.5, legend.name = "Abundance",
+            line_col = c("TNI" = "black", "nTNI" = NA))
+```
+
+SpaTME categorizes the TNI regions into distinct types based on their spatial domain composition. 
+```{r}
+TNI_types <- GroupTNItypes(TNI_pos = stf2@Position[TNIreg == "TNI",],
+                           cluster = stf2@Annotation$bayes_cluster[TNIreg == "TNI"])
+allspots <- rep("others", length(TNIreg))
+names(allspots) <- names(TNIreg)
+allspots[names(TNI_types)] <- TNI_types
+SpotVisualize(pos = stf2@Position,
+              meta = allspots, size = 1.5,
+              cha.col = LabelMapcolor(allspots, assgin.col = c(others = "#ced4da")),
+              title = "TNI types")
+```
+
+SpaTME further classifies the TNI spots into either tumor or normal boundaries based on the tumor cell density.
+```{r}
+TNI_class <- TNIClass(type = allspots, cluster = stf2@Annotation$bayes_cluster,
+                      ES = ES)
+SpotVisualize(pos = stf2@Position,
+              meta = TNI_class, size = 1.5,
+              cha.col = LabelMapcolor(labels = TNI_class,
+                       assgin.col = c(others = "#ced4da")),
+             title = "TNI classes")
+```
+
+## Linking with phentoypes
+
+The bulk RNA-seq profiles and paired clinical annotations of KIRC from TCGA were downloaded and preprocessed. The phenotype-related genes are identified using `PhenoAssoFeatures` function with `cox` method. As an illustration, we conducted NMF analysis using survival-negative genes.  
+```{r, warning=FALSE, message=FALSE}
+Bulk_data <- readRDS("~/test_data/TCGA_KIRC.rds")
+bulk_input <- NMF_bulk_input(data = Bulk_data$Expr_TPM, pt_gene_exp = 0.2, totpm = F, base_gene_exp = 1, dolog = F)
+asso.genes <- PhenoAssoFeatures(data = bulk_input, phenotype = Bulk_data$phenotype, 
+                                method = "cox", p.cut = 0.01)
+used.genes <- asso.genes[asso.genes$coef > 0, "features"]
+```
+
+In SpaTME, the NMF analysis is completed with the `RunNMFtest` function. The number of factors (parameter `rank`) can be specified with a single numeric value or selected from a numeric vector.
+```{r RunNMFtest, fig.width= 7.5, fig.height= 7, warning=FALSE, message=FALSE}
+library(NMF)
+nmf <- RunNMFtest(expr = bulk_input[used.genes,], rank = seq(2, 8), 
+                      min_cophenetic = 0.95, return.all = F)
+consensusmap(nmf)
+W_type <- HPhenoAsso(nmfobj = nmf, phenotype = Bulk_data$phenotype, method = "cox",
+                       p.cut = 1, cox.test.cut = 0, p.adj = F,verbose = F)
+print(W_type)
+```
+
+Showing the top metagenes of factors.
+```{r, warning=FALSE, message=FALSE}
+W <- basis(nmf)
+colnames(W) <- paste0(names(W_type), "_", W_type)
+mg_vt <- FactorMetagenes(ref_W = W, top_num = 200)
+library(ComplexHeatmap)
+library(circlize)
+Heatmap(W[names(mg_vt),], show_row_names = F, row_title = NULL, cluster_rows = F,
+               name = "Weight", split = mg_vt, cluster_columns = F, column_names_rot = 45, row_gap = unit(0, "mm"),
+               col = colorRamp2(c(min(W), max(W)), colors = c("#336699", "#c32f27")))
+```
+
+Enrichment analysis of these metagenes.
+```{r, fig.width= 8, fig.height= 9, warning=FALSE, message=FALSE}
+mg_enrich <- FactorEnrichAnalysis(mg_vt = mg_vt, wrap_width = 50,
+                                    fun = "enrichPathway",
+                                    pAdjustMethod = "none")
+```
+
+SpaTME recovers the relative expression of these factors in ST data.
+```{r, fig.width= 9, fig.height= 14, message=FALSE}
+NMFpred <- PredNMFinST(st2, W = nmf@fit@W, 
+                       assay = "SCT", slot = "data", 
+                       size = 1.2, numCol = 2)
+```
+
