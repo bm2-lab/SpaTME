@@ -13,10 +13,10 @@ SpaTME has been built and tested with R >= 4.3.2. Specific package dependencies 
 if (!requireNamespace("devtools", quietly = TRUE))
     install.packages("devtools")
 
-devtools::install_github("Chengxiaojie/SpaTME")
+devtools::install_github("bm2-lab/SpaTME")
 ```
 
 ## Demonstration
 
-For examples of typical SpaTME usage, please see our [package vignette](https://github.com/Chengxiaojie/SpaTME/blob/main/vignettes/SpaTME.pdf).
+For examples of typical SpaTME usage, please see our [package vignette](https://github.com/Chengxiaojie/SpaTME/blob/main/vignettes/SpaTME.pdf). The [data](https://www.jianguoyun.com/p/DfmFNZQQ7ZHiDBj0_c4FIAA) used for testing is available.
 
