@@ -3,7 +3,7 @@
 ## Overview
 
 ![Overview](inst/Figure_overview.jpg)
-SpaTME is an integrative analytical framework designed for TME deciphering and phenotype linking using spot-resolution ST data. It consists of three functional parts (Figures 1): (1) Characterization of the TME with molecular and cellular features. (2) Recognition of spatial architectures. . (3) Linking with clinical phenotypes.
+SpaTME is an integrative analytical framework designed for TME deciphering and phenotype linking using spot-resolution ST data. It consists of three functional parts (Overview): (1) Characterization of the TME with molecular and cellular features; (2) Recognition of spatial architectures; and (3) Linking with clinical phenotypes.
 
 ## Installation
 
@@ -18,5 +18,5 @@ devtools::install_github("bm2-lab/SpaTME")
 
 ## Demonstration
 
-For examples of typical SpaTME usage, please see our [package vignette](https://github.com/Chengxiaojie/SpaTME/blob/main/vignettes/SpaTME.pdf). The [data](https://www.jianguoyun.com/p/DfmFNZQQ7ZHiDBj0_c4FIAA) used for testing is available.
+For examples of typical SpaTME usage, please see our [package vignette](https://github.com/Chengxiaojie/SpaTME/blob/main/vignettes/SpaTME_tutorial.pdf). The test data and tutorial.html are available to [download](https://www.jianguoyun.com/p/DfmFNZQQ7ZHiDBj0_c4FIAA).
 
