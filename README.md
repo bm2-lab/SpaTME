@@ -18,5 +18,5 @@ devtools::install_github("bm2-lab/SpaTME")
 
 ## Demonstration
 
-For examples of typical SpaTME usage, please see our [package vignette](https://bm2-lab.github.io/SpaTME/vignettes/SpaTME_tutorial). The test data and tutorial.html are available to [download](https://doi.org/10.5281/zenodo.13119168).
+For examples of typical SpaTME usage, please see our [package vignette](https://bm2-lab.github.io/SpaTME/vignettes/SpaTME_tutorial) and [download](https://doi.org/10.5281/zenodo.13119168) the test data.
 
