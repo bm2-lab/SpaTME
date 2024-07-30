@@ -145,9 +145,9 @@ SpotVisualize <- function(st = NULL , pos = NULL, meta = NULL, feature = NULL, s
     theme_void() +
     coord_fixed() +
     labs(title = title, fill = legend.name, color = legend.name) +
-    theme(plot.title = element_text(hjust = 0.5, size = 30),
-          legend.text = element_text(size = 18),
-          legend.title = element_text(size=20)) +
+    theme(plot.title = element_text(hjust = 0.5, size = 24),
+          legend.text = element_text(size = 14),
+          legend.title = element_text(size=16)) +
     theme(...)
   if (scale_y_reverse) {
     gp = gp + scale_y_reverse()
@@ -386,7 +386,7 @@ PlotCellSpot = function(decon_mtrx,
     }
     plot = plot_grid(plotlist = plot.list, ncol = numCol)
   } else {
-    plot = plotSingle(tarCells, title = "percent for cells", type = "pie")
+    plot = plotSingle(tarCells, title = "Percent of cells", type = "pie")
   }
   if(! is.null(savefile)){
     pdf(file = savefile, width = p.width, height = p.height)
