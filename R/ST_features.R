@@ -299,7 +299,7 @@ msigdb_types <- function(){
   return(msigdb_type)
 }
 #' Getting gene sets and accessing enrichment scores.
-#' @description SpaTME enables exploration of signatures or gene sets collected
+#' @description SpaLinker enables exploration of signatures or gene sets collected
 #'   from literatures and databases.
 #' @param expr Expression data. Rows are genes and Columns are spots.
 #' @param stf STFeature object to store the enrichment scores.

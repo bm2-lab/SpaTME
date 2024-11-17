@@ -85,7 +85,7 @@ STcoordCheck <- function(st,
   return(st)
 }
 
-#' Title Preprocessing of ST data with SpaTME
+#' Title Preprocessing of ST data with SpaLinker
 #'
 #' @param se A Seurat object of ST data to preprocess.
 #' @param assay name of assay to use.
