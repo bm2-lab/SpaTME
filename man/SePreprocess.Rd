@@ -2,7 +2,7 @@
 % Please edit documentation in R/Preprocess.R
 \name{SePreprocess}
 \alias{SePreprocess}
-\title{Title Preprocessing of ST data with SpaTME}
+\title{Title Preprocessing of ST data with SpaLinker}
 \usage{
 SePreprocess(
   se,
@@ -39,5 +39,5 @@ Sequentially.}
 A Seurat object with preprocessing results (like PCA, clustering, and UMAP).
 }
 \description{
-Title Preprocessing of ST data with SpaTME
+Title Preprocessing of ST data with SpaLinker
 }

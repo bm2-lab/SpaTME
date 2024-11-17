@@ -46,6 +46,6 @@ If \code{stf} is NULL, return a data with enrichment scores; else,
   return stf with \code{GsetSig} slot added.
 }
 \description{
-SpaTME enables exploration of signatures or gene sets collected
+SpaLinker enables exploration of signatures or gene sets collected
   from literatures and databases.
 }
