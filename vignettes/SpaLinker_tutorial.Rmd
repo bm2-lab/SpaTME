@@ -32,7 +32,7 @@ Then, similar to scRNA-seq data analysis, SpaLinker performs standard preprocess
 st <- SePreprocess(se = st, assay = "Spatial", norm.SCT = TRUE, cluster.resolution = 0.8)
 ```
 
-## Characterization of TME with cellular and molecular features.
+## Characterization of TME with cellular and molecular features
 
 The molecular features are derived from the gene expression matrix, while the cellular features require additional cell annotations. In this tutorial, we utilize the cell abundances deconvoluted using the tool `Cell2location`.
 We create an `STFeature` object, which serves as a container for identified ST features, and initialize it with positional data and cell annotations. 
